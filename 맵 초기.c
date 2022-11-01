@@ -5,6 +5,7 @@
 #include<time.h>
 
 #define TimeLimit 150	//시간 제한
+#define extLimit 5	//소화기 개수 제한
 
 
 //아래 세 개는 플레이에 크게 영항주지 않는 함수 (신경 쓸필요 X)
@@ -23,12 +24,12 @@ int frameArr[19][25] = {
 	{1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
 	{1,2,0,0,1,0,0,0,4,1,0,0,0,0,1,4,0,0,0,0,0,1,0,4,1},
 	{1,0,1,1,1,0,1,1,1,1,0,0,1,1,1,0,1,0,0,0,0,1,0,0,1},
-	{1,0,1,0,0,0,0,0,0,1,0,0,0,0,1,0,1,0,1,1,0,1,0,0,1},
+	{1,0,1,0,5,0,0,0,0,1,0,0,0,0,1,0,1,0,1,1,0,1,0,0,1},
 	{1,4,1,0,1,0,0,1,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,1},
 	{1,0,0,0,1,0,0,1,4,0,0,4,0,1,1,1,1,1,0,0,0,1,1,0,1},
 	{1,1,1,1,1,0,0,1,4,6,6,0,0,1,3,0,0,1,1,1,0,1,0,0,1},
-	{1,0,0,0,0,0,0,1,0,0,1,1,1,0,0,1,1,1,0,0,0,1,0,1,1},
-	{1,4,0,1,0,0,0,0,0,1,0,4,1,0,0,4,0,0,0,0,1,1,0,0,1},
+	{1,0,0,0,5,0,5,1,0,0,1,1,1,0,0,1,1,1,0,0,0,1,0,1,1},
+	{1,4,0,1,0,5,0,0,0,1,0,4,1,0,0,4,0,0,0,0,1,1,0,0,1},
 	{1,1,1,1,0,0,1,0,0,1,0,0,0,0,1,1,1,1,0,0,0,1,1,1,1},
 	{1,0,0,0,0,1,1,1,1,1,0,0,1,0,0,4,1,0,0,0,0,0,0,1,1},
 	{1,0,0,1,0,0,0,0,0,1,1,1,1,0,0,1,1,0,1,0,1,1,1,1,1},
@@ -48,32 +49,43 @@ void printMapScreen(); //맵 출력하는 함수
 typedef struct player {
 	int playerY, playerX;
 }P;
-//키를 입력받고, 움직인다면 화면을 새로고침 해주는 함수
-int KeyControl(P* player);	//반환값은 내가 차지한 위치의 원래 상태 (불, 소화기, 엘베, 목적지, 공백 등)
+//키를 입력받고, 움직임이나 불 끄기가 감지되면 화면을 새로고침 해주는 함수
+int KeyControl(P* player, int *extinguisherCnt);	//반환값은 내가 차지한 위치의 원래 상태 (불, 소화기, 엘베, 목적지, 공백 등)
 
 
 int main() {
 
 	P player;
-	player.playerX = 1, player.playerY = 1;
+	player.playerX = 1, player.playerY = 1;	//플레이어의 초기 위치
 
-	init();
+	init();	//콘솔창 설정
 
-	int startTime = GetTickCount64();
+	//초기 시간 설정, 소화기 개수 설정
+	int startTime = GetTickCount64();	
 	printMapScreen();
 	int nowTime = 0;
 	int extinguisher = 0;
 	
-
+	//본격 게임 실행
 	while (1) {
 		gotoxy(5, 23);
 		nowTime = GetTickCount64();
 		printf("현재 시간 : %d초 / %d초\n", (nowTime - startTime) / 1000, TimeLimit);
 		gotoxy(32, 23);
-		printf("현재 소화기 개수 : %d/5", 2);
+		printf("현재 소화기 개수 : %d/%d", extinguisher, extLimit);
+
+		int sort = KeyControl(&player, &extinguisher);
+
+
+
+		//소화기 개수 업뎃
+		if (sort == 4) {
+			if (extinguisher < 5)
+				extinguisher++;
+		}
+
 
 		//종료조건
-		int sort = KeyControl(&player);
 		if (sort==3 && (nowTime - startTime) / 1000 < TimeLimit) {
 			gotoxy(12, 23);
 			puts("성공!!!");
@@ -94,7 +106,6 @@ int main() {
 			puts("엘리베이터; Game Over");
 			break;
 		}
-
 	}
 
 
@@ -170,17 +181,46 @@ void printMapScreen() {
 	}
 }
 
-//키를 입력받고, 움직인다면 화면을 새로고침 해주는 함수
-int KeyControl(P* player) {
+
+
+//키를 입력받고, 움직임이나 불 끄기가 감지되면 화면을 새로고침 해주는 함수
+int KeyControl(P* player, int *extinguisherCnt) {
 
 	char pressKey;
+	int flag_press_spacebar = 0;
 
 	//키가 입력되면 잡아준다
 	if (_kbhit()) {
 		int tmpX = player->playerX, tmpY = player->playerY;	//플레이어 좌표의 초기값 기억
-		int remember_sort = 0;
+		int remember_sort = 0;	//스페이스바가 눌렸는지 확인하기 위한 플래그
 
 		pressKey = _getch();
+
+		if (pressKey == 32 && *extinguisherCnt > 0) {
+			int extinguish_cnt = 0;	//불을 몇 개나 껐는지 확인
+
+			if (frameArr[player->playerY + 1][player->playerX] == 5) {
+				frameArr[player->playerY + 1][player->playerX] = 0;
+				extinguish_cnt++;
+			}
+			if (frameArr[player->playerY - 1][player->playerX] == 5) {
+				frameArr[player->playerY - 1][player->playerX] = 0;
+				extinguish_cnt++;
+			}
+			if (frameArr[player->playerY][player->playerX + 1] == 5) {
+				frameArr[player->playerY][player->playerX + 1] = 0;
+				extinguish_cnt++;
+			}
+			if (frameArr[player->playerY][player->playerX - 1] == 5) {
+				frameArr[player->playerY][player->playerX - 1] = 0;
+				extinguish_cnt++;
+			}
+			
+			if (extinguish_cnt > 0) {
+				flag_press_spacebar = 1;
+				(*extinguisherCnt)--;
+			}
+		}
 
 		switch (pressKey) {
 
@@ -215,11 +255,11 @@ int KeyControl(P* player) {
 			}
 			break;
 
-
 		}
+		
 
-		//움직인다면,
-		if (player->playerX != tmpX || player->playerY != tmpY) {
+		//움직였거나 불을 껐다면 화면 재출력
+		if (player->playerX != tmpX || player->playerY != tmpY || flag_press_spacebar == 1) {
 			//지워주고
 			system("cls");
 			frameArr[tmpY][tmpX] = 0;
