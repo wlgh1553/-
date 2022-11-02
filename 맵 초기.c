@@ -261,7 +261,6 @@ int KeyControl(P* player, int *extinguisherCnt) {
 		//움직였거나 불을 껐다면 화면 재출력
 		if (player->playerX != tmpX || player->playerY != tmpY || flag_press_spacebar == 1) {
 			//지워주고
-			system("cls");
 			frameArr[tmpY][tmpX] = 0;
 
 			//움직이고
